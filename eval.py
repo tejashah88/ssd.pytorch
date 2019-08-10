@@ -9,8 +9,7 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
-from data import VOC_ROOT, VOCAnnotationTransform, VOCDetection, BaseTransform
-from data import VOC_CLASSES as labelmap
+from data import VOC_ROOT, VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_CLASSES, CUSTOM_CLASSES
 import torch.utils.data as data
 
 from ssd import build_ssd
@@ -22,7 +21,7 @@ import argparse
 import numpy as np
 import pickle
 import cv2
-
+import xmltodict
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
 else:
@@ -35,8 +34,7 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Evaluation')
-parser.add_argument('--trained_model',
-                    default='weights/ssd300_mAP_77.43_v2.pth', type=str,
+parser.add_argument('--trained_model', default='weights/ssd300_mAP_77.43_v2.pth', type=str,
                     help='Trained state_dict file path to open')
 parser.add_argument('--save_folder', default='eval/', type=str,
                     help='File path to save results')
@@ -50,8 +48,20 @@ parser.add_argument('--voc_root', default=VOC_ROOT,
                     help='Location of VOC root directory')
 parser.add_argument('--cleanup', default=True, type=str2bool,
                     help='Cleanup and remove results files following eval')
+parser.add_argument('--max_test', default=sys.maxsize, type=int,
+                    help='Max number of test images to evaluate model')
+parser.add_argument('--use_custom', default=False, type=str2bool,
+                    help='If specified, use the custom VOC Detection implementation')
+parser.add_argument('--year', default='2007', help='Dataset year to load')
+parser.add_argument('--use_07_metric', default=True, type=str2bool,
+                    help='Use the VOC 07 11 point method')
 
 args = parser.parse_args()
+
+if args.use_custom:
+    from data import CUSTOM_CLASSES as labelmap
+else:
+    from data import VOC_CLASSES as labelmap
 
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
@@ -66,12 +76,11 @@ if torch.cuda.is_available():
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
 
-annopath = os.path.join(args.voc_root, 'VOC2007', 'Annotations', '%s.xml')
-imgpath = os.path.join(args.voc_root, 'VOC2007', 'JPEGImages', '%s.jpg')
-imgsetpath = os.path.join(args.voc_root, 'VOC2007', 'ImageSets',
-                          'Main', '{:s}.txt')
-YEAR = '2007'
-devkit_path = args.voc_root + 'VOC' + YEAR
+dataset_name = 'VOC' + args.year
+annopath = os.path.join(args.voc_root, dataset_name, 'Annotations', '%s.xml')
+imgpath = os.path.join(args.voc_root, dataset_name, 'JPEGImages', '%s.jpg')
+imgsetpath = os.path.join(args.voc_root, dataset_name, 'ImageSets', 'Main', '{:s}.txt')
+devkit_path = args.voc_root + dataset_name
 dataset_mean = (104, 117, 123)
 set_type = 'test'
 
@@ -103,22 +112,36 @@ class Timer(object):
 
 def parse_rec(filename):
     """ Parse a PASCAL VOC xml file """
-    tree = ET.parse(filename)
-    objects = []
-    for obj in tree.findall('object'):
-        obj_struct = {}
-        obj_struct['name'] = obj.find('name').text
-        obj_struct['pose'] = obj.find('pose').text
-        obj_struct['truncated'] = int(obj.find('truncated').text)
-        obj_struct['difficult'] = int(obj.find('difficult').text)
-        bbox = obj.find('bndbox')
-        obj_struct['bbox'] = [int(bbox.find('xmin').text) - 1,
-                              int(bbox.find('ymin').text) - 1,
-                              int(bbox.find('xmax').text) - 1,
-                              int(bbox.find('ymax').text) - 1]
-        objects.append(obj_struct)
+    with open(filename) as f:
+        objects = xmltodict.parse(f.read())
+    final_obj = []
+    obj_struct = {}
+    try:
+        obj_struct['name'] = objects['root']['annotation']['object']['name']
+        # obj_struct['pose'] = obj.find('pose').text
+        # obj_struct['truncated'] = int(obj.find('truncated').text)
+        obj_struct['difficult'] = 0 # int(obj.find('difficult').text)
 
-    return objects
+        bbox = objects['root']['annotation']['object']['bndbox']
+        obj_struct['bbox'] = [int(bbox['xmin']) - 1,
+                              int(bbox['ymin']) - 1,
+                              int(bbox['xmax']) - 1,
+                              int(bbox['ymax']) - 1]
+        final_obj.append(obj_struct)
+    except KeyError:
+        for obj in objects['root']['annotation']['object']['item']:
+            obj_struct['name']  = obj['name']
+            obj_struct['difficult'] = 0
+
+            bbox = obj['bndbox']
+            obj_struct['bbox'] = [int(bbox['xmin']) - 1,
+                                  int(bbox['ymin']) - 1,
+                                  int(bbox['xmax']) - 1,
+                                  int(bbox['ymax']) - 1]
+
+            final_obj.append(obj_struct)
+
+    return final_obj
 
 
 def get_output_dir(name, phase):
@@ -134,7 +157,6 @@ def get_output_dir(name, phase):
 
 
 def get_voc_results_file_template(image_set, cls):
-    # VOCdevkit/VOC2007/results/det_test_aeroplane.txt
     filename = 'det_' + image_set + '_%s.txt' % (cls)
     filedir = os.path.join(devkit_path, 'results')
     if not os.path.exists(filedir):
@@ -148,7 +170,7 @@ def write_voc_results_file(all_boxes, dataset):
         print('Writing {:s} VOC results file'.format(cls))
         filename = get_voc_results_file_template(set_type, cls)
         with open(filename, 'wt') as f:
-            for im_ind, index in enumerate(dataset.ids):
+            for im_ind, index in enumerate(dataset.ids[:args.max_test]):
                 dets = all_boxes[cls_ind+1][im_ind]
                 if dets == []:
                     continue
@@ -238,34 +260,35 @@ def voc_eval(detpath,
                            classname,
                            [ovthresh],
                            [use_07_metric])
-Top level function that does the PASCAL VOC evaluation.
-detpath: Path to detections
-   detpath.format(classname) should produce the detection results file.
-annopath: Path to annotations
-   annopath.format(imagename) should be the xml annotations file.
-imagesetfile: Text file containing the list of images, one image per line.
-classname: Category name (duh)
-cachedir: Directory for caching the annotations
-[ovthresh]: Overlap threshold (default = 0.5)
-[use_07_metric]: Whether to use VOC07's 11 point AP computation
-   (default True)
-"""
-# assumes detections are in detpath.format(classname)
-# assumes annotations are in annopath.format(imagename)
-# assumes imagesetfile is a text file with each line an image name
-# cachedir caches the annotations in a pickle file
-# first load gt
+    Top level function that does the PASCAL VOC evaluation.
+    detpath: Path to detections
+    detpath.format(classname) should produce the detection results file.
+    annopath: Path to annotations
+    annopath.format(imagename) should be the xml annotations file.
+    imagesetfile: Text file containing the list of images, one image per line.
+    classname: Category name (duh)
+    cachedir: Directory for caching the annotations
+    [ovthresh]: Overlap threshold (default = 0.5)
+    [use_07_metric]: Whether to use VOC07's 11 point AP computation
+    (default True)
+    """
+    # assumes detections are in detpath.format(classname)
+    # assumes annotations are in annopath.format(imagename)
+    # assumes imagesetfile is a text file with each line an image name
+    # cachedir caches the annotations in a pickle file
+    # first load gt
     if not os.path.isdir(cachedir):
         os.mkdir(cachedir)
     cachefile = os.path.join(cachedir, 'annots.pkl')
     # read list of images
     with open(imagesetfile, 'r') as f:
         lines = f.readlines()
-    imagenames = [x.strip() for x in lines]
+    imagenames = [x.strip() for x in lines][:args.max_test]
     if not os.path.isfile(cachefile):
         # load annots
         recs = {}
         for i, imagename in enumerate(imagenames):
+            print(annopath % (imagename))
             recs[imagename] = parse_rec(annopath % (imagename))
             if i % 100 == 0:
                 print('Reading annotation for {:d}/{:d}'.format(
@@ -292,12 +315,12 @@ cachedir: Directory for caching the annotations
                                  'difficult': difficult,
                                  'det': det}
 
+
     # read dets
     detfile = detpath.format(classname)
     with open(detfile, 'r') as f:
         lines = f.readlines()
     if any(lines) == 1:
-
         splitlines = [x.strip().split(' ') for x in lines]
         image_ids = [x[0] for x in splitlines]
         confidence = np.array([float(x[1]) for x in splitlines])
@@ -363,7 +386,7 @@ cachedir: Directory for caching the annotations
 
 def test_net(save_folder, net, cuda, dataset, transform, top_k,
              im_size=300, thresh=0.05):
-    num_images = len(dataset)
+    num_images = min(len(dataset), args.max_test)
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
@@ -415,7 +438,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
 
 def evaluate_detections(box_list, output_dir, dataset):
     write_voc_results_file(box_list, dataset)
-    do_python_eval(output_dir)
+    do_python_eval(output_dir, args.use_07_metric)
 
 
 if __name__ == '__main__':
@@ -426,9 +449,22 @@ if __name__ == '__main__':
     net.eval()
     print('Finished loading model!')
     # load data
-    dataset = VOCDetection(args.voc_root, [('2007', set_type)],
-                           BaseTransform(300, dataset_mean),
-                           VOCAnnotationTransform())
+    if args.use_custom:
+        custom_class_to_ind = dict(zip(CUSTOM_CLASSES, range(len(CUSTOM_CLASSES))))
+        dataset = VOCDetection(
+            root=args.voc_root,
+            image_sets=[('2019', set_type)],
+            dataset_name='VOC2019',
+            transform=BaseTransform(300, dataset_mean),
+            target_transform=VOCAnnotationTransform(class_to_ind=custom_class_to_ind))
+    else:
+        dataset = VOCDetection(
+            root=args.voc_root,
+            image_sets=[('2007', set_type)],
+            dataset_name='VOC0712',
+            transform=BaseTransform(300, dataset_mean),
+            target_transform=VOCAnnotationTransform())
+
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True

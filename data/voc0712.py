@@ -12,10 +12,13 @@ import torch
 import torch.utils.data as data
 import cv2
 import numpy as np
+import xmltodict
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
 else:
     import xml.etree.ElementTree as ET
+
+CUSTOM_CLASSES = ['logo']
 
 VOC_CLASSES = (  # always index 0
     'aeroplane', 'bicycle', 'bird', 'boat',
@@ -55,25 +58,36 @@ class VOCAnnotationTransform(object):
             a list containing lists of bounding boxes  [bbox coords, class name]
         """
         res = []
-        for obj in target.iter('object'):
-            difficult = int(obj.find('difficult').text) == 1
-            if not self.keep_difficult and difficult:
-                continue
-            name = obj.find('name').text.lower().strip()
-            bbox = obj.find('bndbox')
+        difficult = False  # int(obj.find('difficult').text) == 1
+        try:
+            name = target['root']['annotation']['object']['name']
+            bbox = target['root']['annotation']['object']['bndbox']
 
             pts = ['xmin', 'ymin', 'xmax', 'ymax']
             bndbox = []
             for i, pt in enumerate(pts):
-                cur_pt = int(bbox.find(pt).text) - 1
+                cur_pt = int(bbox[pt]) - 1
                 # scale height or width
                 cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
                 bndbox.append(cur_pt)
             label_idx = self.class_to_ind[name]
             bndbox.append(label_idx)
             res += [bndbox]  # [xmin, ymin, xmax, ymax, label_ind]
-            # img_id = target.find('filename').text[:-4]
+        except KeyError:
+            for obj in target['root']['annotation']['object']['item']:
+                name = obj['name']
+                bbox = obj['bndbox']
 
+                pts = ['xmin', 'ymin', 'xmax', 'ymax']
+                bndbox = []
+                for i, pt in enumerate(pts):
+                    cur_pt = int(bbox[pt]) - 1
+                    # scale height or width
+                    cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
+                    bndbox.append(cur_pt)
+                label_idx = self.class_to_ind[name]
+                bndbox.append(label_idx)
+                res += [bndbox]  # [xmin, ymin, xmax, ymax, label_ind]
         return res  # [[xmin, ymin, xmax, ymax, label_ind], ... ]
 
 
@@ -122,7 +136,8 @@ class VOCDetection(data.Dataset):
     def pull_item(self, index):
         img_id = self.ids[index]
 
-        target = ET.parse(self._annopath % img_id).getroot()
+        with open(self._annopath % img_id) as f:
+            target = xmltodict.parse(f.read())
         img = cv2.imread(self._imgpath % img_id)
         height, width, channels = img.shape
 
@@ -166,7 +181,8 @@ class VOCDetection(data.Dataset):
                 eg: ('001718', [('dog', (96, 13, 438, 332))])
         '''
         img_id = self.ids[index]
-        anno = ET.parse(self._annopath % img_id).getroot()
+        with open(self._annopath % img_id) as f:
+            anno = xmltodict.parse(f.read())
         gt = self.target_transform(anno, 1, 1)
         return img_id[1], gt
 
