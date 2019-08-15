@@ -1,4 +1,7 @@
 # SSD: Single Shot MultiBox Object Detector, in PyTorch
+
+### Note: For XSible, refer to the [notebook repository](https://github.com/xsible/ssd-notebook-playground) for instructions on running the various scripts.
+
 A [PyTorch](http://pytorch.org/) implementation of [Single Shot MultiBox Detector](http://arxiv.org/abs/1512.02325) from the 2016 paper by Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian Szegedy, Scott Reed, Cheng-Yang, and Alexander C. Berg.  The official and original Caffe code can be found [here](https://github.com/weiliu89/caffe/tree/ssd).
 
 
@@ -91,7 +94,7 @@ To evaluate a trained network:
 python eval.py
 ```
 
-You can specify the parameters listed in the `eval.py` file by flagging them or manually changing them.  
+You can specify the parameters listed in the `eval.py` file by flagging them or manually changing them.
 
 
 <img align="left" src= "https://github.com/amdegroot/ssd.pytorch/blob/master/doc/detection_examples.png">
@@ -114,7 +117,7 @@ You can specify the parameters listed in the `eval.py` file by flagging them or 
 ### Use a pre-trained SSD network for detection
 
 #### Download a pre-trained network
-- We are trying to provide PyTorch `state_dicts` (dict of weight tensors) of the latest SSD model definitions trained on different datasets.  
+- We are trying to provide PyTorch `state_dicts` (dict of weight tensors) of the latest SSD model definitions trained on different datasets.
 - Currently, we provide the following PyTorch models:
     * SSD300 trained on VOC0712 (newest PyTorch weights)
       - https://s3.amazonaws.com/amdegroot-models/ssd300_mAP_77.43_v2.pth
