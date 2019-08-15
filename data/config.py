@@ -1,8 +1,10 @@
 # config.py
 import os.path
 
+USING_GOOGLE_COLAB = False
+
 # gets home dir cross platform
-HOME = '/content/ssd.pytorch/' # os.path.expanduser("~")
+HOME = '/content/ssd.pytorch/' if USING_GOOGLE_COLAB else os.path.expanduser("~")
 
 # for making bounding boxes pretty
 COLORS = ((255, 0, 0, 128), (0, 255, 0, 128), (0, 0, 255, 128),

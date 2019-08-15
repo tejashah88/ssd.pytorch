@@ -5,6 +5,7 @@ import numpy as np
 import types
 from numpy import random
 
+from data import MEANS
 
 def intersect(box_a, box_b):
     max_xy = np.minimum(box_a[:, 2:], box_b[2:])
@@ -398,7 +399,7 @@ class PhotometricDistort(object):
 
 
 class SSDAugmentation(object):
-    def __init__(self, size=300, mean=(104, 117, 123)):
+    def __init__(self, size=300, mean=MEANS):
         self.mean = mean
         self.size = size
         self.augment = Compose([

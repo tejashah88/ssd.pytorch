@@ -40,10 +40,7 @@ def predict(frame, transform, net):
     # for i in range(detections.size(1)):
     # while detections[0, i, j, 0] >= 0.95:
     pt = (detections[0, i, j, 1:] * scale).cpu().numpy()
-    cv2.rectangle(frame,
-                    (int(pt[0]), int(pt[1])),
-                    (int(pt[2]), int(pt[3])),
-                    COLORS[i % 3], 2)
+    cv2.rectangle(frame, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), COLORS[i % 3], 2)
         # j += 1
     return frame, pt
 
@@ -57,7 +54,8 @@ def run_inference(model_file):
 
     def predict_simple(input_file):
         input_img = cv2.imread(input_file)
-        output, pt = predict(input_img, BaseTransform(net.size, (104, 117, 123)), net)
+        output, pt = predict(input_img, BaseTransform(net.size, MEANS), net)
+        return output, pt
 
     return predict_simple
 

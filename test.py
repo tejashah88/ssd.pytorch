@@ -3,17 +3,20 @@ import sys
 import os
 import argparse
 import random
+
+from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_ROOT, VOC_CLASSES, CUSTOM_CLASSES, MEANS
+from ssd import build_ssd
+
+from PIL import Image
+import cv2
+import matplotlib.pyplot as plt
+
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 from torch.autograd import Variable
-from PIL import Image
-from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_ROOT, VOC_CLASSES, CUSTOM_CLASSES
 import torch.utils.data as data
-from ssd import build_ssd
-import cv2
-import matplotlib.pyplot as plt
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -37,6 +40,7 @@ if args.cuda and torch.cuda.is_available():
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
+
 
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
@@ -140,6 +144,7 @@ def test_voc():
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
+
     # load data
     if args.use_custom:
         custom_class_to_ind = dict(zip(CUSTOM_CLASSES, range(len(CUSTOM_CLASSES))))
@@ -160,9 +165,10 @@ def test_voc():
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
+
     # evaluation
     test_random_img(args.save_folder, net, args.cuda, testset,
-                    BaseTransform(net.size, (104, 117, 123)),
+                    BaseTransform(net.size, MEANS),
                     thresh=args.visual_threshold)
 
 if __name__ == '__main__':

@@ -5,29 +5,25 @@
 """
 
 from __future__ import print_function
-import torch
-import torch.nn as nn
-import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
-from data import VOC_ROOT, VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_CLASSES, CUSTOM_CLASSES
-import torch.utils.data as data
 
+from data import VOC_ROOT, VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_CLASSES, CUSTOM_CLASSES, MEANS
 from ssd import build_ssd
 
 import sys
 import os
 import time
 import argparse
-import numpy as np
 import pickle
+
+import numpy as np
 import cv2
 import xmltodict
-if sys.version_info[0] == 2:
-    import xml.etree.cElementTree as ET
-else:
-    import xml.etree.ElementTree as ET
 
-
+import torch
+import torch.nn as nn
+import torch.backends.cudnn as cudnn
+from torch.autograd import Variable
+import torch.utils.data as data
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
@@ -58,13 +54,11 @@ parser.add_argument('--use_07_metric', default=True, type=str2bool,
 
 args = parser.parse_args()
 
+
 if args.use_custom:
     from data import CUSTOM_CLASSES as labelmap
 else:
     from data import VOC_CLASSES as labelmap
-
-if not os.path.exists(args.save_folder):
-    os.mkdir(args.save_folder)
 
 if torch.cuda.is_available():
     if args.cuda:
@@ -81,7 +75,6 @@ annopath = os.path.join(args.voc_root, dataset_name, 'Annotations', '%s.xml')
 imgpath = os.path.join(args.voc_root, dataset_name, 'JPEGImages', '%s.jpg')
 imgsetpath = os.path.join(args.voc_root, dataset_name, 'ImageSets', 'Main', '{:s}.txt')
 devkit_path = args.voc_root + dataset_name
-dataset_mean = (104, 117, 123)
 set_type = 'test'
 
 
@@ -384,8 +377,7 @@ def voc_eval(detpath,
     return rec, prec, ap
 
 
-def test_net(save_folder, net, cuda, dataset, transform, top_k,
-             im_size=300, thresh=0.05):
+def test_net(net, cuda, dataset, transform, im_size=300, thresh=0.05):
     num_images = min(len(dataset), args.max_test)
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
@@ -448,6 +440,7 @@ if __name__ == '__main__':
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
+
     # load data
     if args.use_custom:
         custom_class_to_ind = dict(zip(CUSTOM_CLASSES, range(len(CUSTOM_CLASSES))))
@@ -455,20 +448,19 @@ if __name__ == '__main__':
             root=args.voc_root,
             image_sets=[('2019', set_type)],
             dataset_name='VOC2019',
-            transform=BaseTransform(300, dataset_mean),
+            transform=BaseTransform(300, MEANS),
             target_transform=VOCAnnotationTransform(class_to_ind=custom_class_to_ind))
     else:
         dataset = VOCDetection(
             root=args.voc_root,
             image_sets=[('2007', set_type)],
             dataset_name='VOC0712',
-            transform=BaseTransform(300, dataset_mean),
+            transform=BaseTransform(300, MEANS),
             target_transform=VOCAnnotationTransform())
 
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
+
     # evaluation
-    test_net(args.save_folder, net, args.cuda, dataset,
-             BaseTransform(net.size, dataset_mean), args.top_k, 300,
-             thresh=args.confidence_threshold)
+    test_net(net, args.cuda, dataset, BaseTransform(net.size, MEANS), 300, thresh=args.confidence_threshold)
