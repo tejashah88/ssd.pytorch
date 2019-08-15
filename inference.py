@@ -24,11 +24,11 @@ custom_class_to_ind = dict(zip(labelmap, range(len(labelmap))))
 
 COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 
-def predict(img, transform, net, debug_predictions='none'):
-    height, width = img.shape[:2]
-    x = torch.from_numpy(transform(img)[0]).permute(2, 0, 1)
+def predict(input_img, transform, net, cuda, debug_predictions='none'):
+    height, width = input_img.shape[:2]
+    x = torch.from_numpy(transform(input_img)[0]).permute(2, 0, 1)
 
-    if args.cuda:
+    if cuda:
         x = x.cuda()
 
     x = Variable(x.unsqueeze(0))
@@ -55,27 +55,27 @@ def predict(img, transform, net, debug_predictions='none'):
         if debug_predictions == 'simple':
             print('Predicted box: \t' + str(np.rint(pt).astype(int)))
             print('Confidence: \t%.4f' % detections[0, i, j, 0].item())
-        cv2.rectangle(img, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), (0, 255, 0), 2)
-    return img, best_pt
+        cv2.rectangle(input_img, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), (0, 255, 0), 2)
+    return input_img, best_pt
 
-def run_inference(model_file):
+def run_inference(model_file, cuda=True):
     net = build_ssd('test', 300, num_classes) # initialize SSD
 
-    if args.cuda:
+    if cuda:
         net.load_state_dict(torch.load(args.trained_model, map_location=torch.device('cuda')))
     else:
         net.load_state_dict(torch.load(args.trained_model, map_location=torch.device('cpu')))
 
     net = net.eval()
 
-    if args.cuda:
+    if cuda:
         net = net.cuda()
         cudnn.benchmark = True
 
     print('Finished loading model!')
 
     def predict_simple(input_img):
-        output, pt = predict(input_img, BaseTransform(300, MEANS), net)
+        output, pt = predict(input_img, BaseTransform(300, MEANS), net, cuda)
         return output, pt
 
     return predict_simple
@@ -102,7 +102,7 @@ if __name__ == '__main__':
         torch.set_default_tensor_type('torch.FloatTensor')
 
 
-    predict_simple = run_inference(args.trained_model)
+    predict_simple = run_inference(args.trained_model, args.cuda)
     input_img = cv2.imread(args.input)
     output_img, pt = predict_simple(input_img)
 
