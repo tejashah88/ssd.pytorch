@@ -61,10 +61,9 @@ def train():
     if args.dataset == 'COCO':
         print('Error: Only VOC or custom option is supported.')
         return
-    #     cfg = coco
-    #     dataset = COCODetection(root=args.dataset_root,
-    #                             transform=SSDAugmentation(cfg['min_dim'],
-    #                                                       MEANS))
+        # cfg = coco
+        # dataset = COCODetection(root=args.dataset_root,
+        #                         transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
         cfg = voc
         dataset = VOCDetection(root=args.dataset_root,

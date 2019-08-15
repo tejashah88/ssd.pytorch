@@ -126,3 +126,6 @@ data/ssd_dataloader.py
 
 # pylint
 .pylintrc
+
+# Model dataset and weights
+model_data/*

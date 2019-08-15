@@ -3,26 +3,30 @@ import sys
 import os
 import argparse
 import random
+
+from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_ROOT, CUSTOM_CLASSES as labelmap, MEANS
+from ssd import build_ssd
+
+from PIL import Image
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 from torch.autograd import Variable
-from PIL import Image
-from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_ROOT, CUSTOM_CLASSES as labelmap, MEANS
 import torch.utils.data as data
-from ssd import build_ssd
-import cv2
-import matplotlib.pyplot as plt
 
 num_classes = len(labelmap) + 1 # +1 background
 custom_class_to_ind = dict(zip(labelmap, range(len(labelmap))))
 
 COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 
-def predict(frame, transform, net):
-    height, width = frame.shape[:2]
-    x = torch.from_numpy(transform(frame)[0]).permute(2, 0, 1)
+def predict(img, transform, net, debug_predictions='none'):
+    height, width = img.shape[:2]
+    x = torch.from_numpy(transform(img)[0]).permute(2, 0, 1)
 
     if args.cuda:
         x = x.cuda()
@@ -36,12 +40,23 @@ def predict(frame, transform, net):
 
     i = 1
     j = 0
-    # for i in range(detections.size(1)):
-    # while detections[0, i, j, 0] >= 0.95:
-    pt = (detections[0, i, j, 1:] * scale).cpu().numpy()
-    cv2.rectangle(frame, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), COLORS[i % 3], 2)
-        # j += 1
-    return frame, pt
+    best_pt = (detections[0, i, j, 1:] * scale).cpu().numpy()
+
+    if debug_predictions == 'full':
+        print('PREDICTIONS:')
+        for i in range(detections.size(1)):
+            while detections[0, i, j, 0] >= 0.05:
+                pt = (detections[0, i, j, 1:] * scale).cpu().numpy()
+                print('  BOX: ' + str(np.rint(pt)) + ' => \t' + '%.4f' % detections[0, i, j, 0].item())
+                cv2.rectangle(img, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), (0, int(255 * detections[0, i, j, 0]), 0), 2)
+                j += 1
+    else:
+        pt = (detections[0, i, j, 1:] * scale).cpu().numpy()
+        if debug_predictions == 'simple':
+            print('Predicted box: \t' + str(np.rint(pt).astype(int)))
+            print('Confidence: \t%.4f' % detections[0, i, j, 0].item())
+        cv2.rectangle(img, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), (0, 255, 0), 2)
+    return img, best_pt
 
 def run_inference(model_file):
     net = build_ssd('test', 300, num_classes) # initialize SSD
@@ -59,9 +74,8 @@ def run_inference(model_file):
 
     print('Finished loading model!')
 
-    def predict_simple(input_file):
-        input_img = cv2.imread(input_file)
-        output, pt = predict(input_img, BaseTransform(net.size, MEANS), net)
+    def predict_simple(input_img):
+        output, pt = predict(input_img, BaseTransform(300, MEANS), net)
         return output, pt
 
     return predict_simple
@@ -89,5 +103,11 @@ if __name__ == '__main__':
 
 
     predict_simple = run_inference(args.trained_model)
-    output_img, pt = predict_simple(args.input)
-    cv2.imwrite('output-inference.jpg', output_img)
+    input_img = cv2.imread(args.input)
+    output_img, pt = predict_simple(input_img)
+
+
+    cv2.imshow('output', output_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    cv2.waitKey(1)
