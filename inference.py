@@ -61,9 +61,12 @@ def run_inference(model_file):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Single Shot MultiBox Detector Inference With Pytorch')
-    parser.add_argument('--input', type=str, help='Input image')
-    parser.add_argument('--trained_model', default='weights/ssd_300_VOC0712.pth',
-                        type=str, help='Trained state_dict file path to open')
+    parser.add_argument('--input', type=str, help='Input image to run inference on')
+    parser.add_argument('--trained-model', dest='trained_model', default='weights/ssd_300_VOC0712.pth', type=str, help='Trained state_dict file path to open')
+
+    parser.add_argument('--cuda', dest='cuda', action='store_true', help='Use CUDA to train model (default)')
+    parser.add_argument('--no-cuda', dest='cuda', action='store_false', help='Do not use CUDA to train model')
+    parser.set_defaults(cuda=True)
     args = parser.parse_args()
 
     predict_simple = run_inference(args.trained_model)

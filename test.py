@@ -18,22 +18,20 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 import torch.utils.data as data
 
-def str2bool(v):
-    return v.lower() in ("yes", "true", "t", "1")
-
 parser = argparse.ArgumentParser(description='Single Shot MultiBox Detection')
-parser.add_argument('--trained_model', default='weights/ssd_300_VOC0712.pth',
-                    type=str, help='Trained state_dict file path to open')
-parser.add_argument('--save_folder', default='eval/', type=str,
-                    help='Dir to save results')
-parser.add_argument('--visual_threshold', default=0.6, type=float,
-                    help='Final confidence threshold')
-parser.add_argument('--cuda', default=True, type=bool,
-                    help='Use cuda to train model')
-parser.add_argument('--use_custom', default=False, type=str2bool,
-                    help='If specified, use the custom VOC Detection implementation')
-parser.add_argument('--voc_root', default=VOC_ROOT, help='Location of VOC root directory')
-parser.add_argument('-f', default=None, type=str, help="Dummy arg so we can load in Jupyter Notebooks")
+parser.add_argument('--trained-model', dest='trained_model', default='weights/ssd_300_VOC0712.pth', type=str, help='Trained state_dict file path to open')
+parser.add_argument('--save-folder', dest='save_folder', default='eval/', type=str, help='Dir to save results')
+parser.add_argument('--visual-threshold', dest='visual_threshold', default=0.6, type=float, help='Final confidence threshold')
+parser.add_argument('--voc-root', dest='voc_root', default=VOC_ROOT, help='Location of VOC root directory')
+
+parser.add_argument('--cuda', dest='cuda', action='store_true', help='Use CUDA to train model (default)')
+parser.add_argument('--no-cuda', dest='cuda', action='store_false', help='Do not use CUDA to train model')
+parser.set_defaults(cuda=True)
+
+parser.add_argument('--custom-voc', dest='use_custom', action='store_true', help='Use a custom VOC-like dataset')
+parser.add_argument('--standard-voc', dest='use_custom', action='store_false', help='Use the standard VOC dataset (default)')
+parser.set_defaults(use_custom=False)
+
 args = parser.parse_args()
 
 if args.cuda and torch.cuda.is_available():

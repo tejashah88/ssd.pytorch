@@ -24,33 +24,27 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 import torch.utils.data as data
-def str2bool(v):
-    return v.lower() in ("yes", "true", "t", "1")
 
-
-parser = argparse.ArgumentParser(
-    description='Single Shot MultiBox Detector Evaluation')
-parser.add_argument('--trained_model', default='weights/ssd300_mAP_77.43_v2.pth', type=str,
-                    help='Trained state_dict file path to open')
-parser.add_argument('--save_folder', default='eval/', type=str,
-                    help='File path to save results')
-parser.add_argument('--confidence_threshold', default=0.01, type=float,
-                    help='Detection confidence threshold')
-parser.add_argument('--top_k', default=5, type=int,
-                    help='Further restrict the number of predictions to parse')
-parser.add_argument('--cuda', default=True, type=str2bool,
-                    help='Use cuda to train model')
-parser.add_argument('--voc_root', default=VOC_ROOT,
-                    help='Location of VOC root directory')
-parser.add_argument('--cleanup', default=True, type=str2bool,
-                    help='Cleanup and remove results files following eval')
-parser.add_argument('--max_test', default=sys.maxsize, type=int,
-                    help='Max number of test images to evaluate model')
-parser.add_argument('--use_custom', default=False, type=str2bool,
-                    help='If specified, use the custom VOC Detection implementation')
+parser = argparse.ArgumentParser(description='Single Shot MultiBox Detector Evaluation')
+parser.add_argument('--trained-model', dest='trained_model', default='weights/ssd300_mAP_77.43_v2.pth', type=str, help='Trained state_dict file path to open')
+parser.add_argument('--confidence-threshold', dest='confidence_threshold', default=0.05, type=float, help='Detection confidence threshold')
+parser.add_argument('--voc-root', dest='voc_root', default=VOC_ROOT, help='Location of VOC root directory')
+parser.add_argument('--max-test', dest='max_test', default=sys.maxsize, type=int, help='Max number of test images to evaluate model')
 parser.add_argument('--year', default='2007', help='Dataset year to load')
-parser.add_argument('--use_07_metric', default=True, type=str2bool,
-                    help='Use the VOC 07 11 point method')
+
+parser.add_argument('--cuda', dest='cuda', action='store_true', help='Use CUDA to train model (default)')
+parser.add_argument('--no-cuda', dest='cuda', action='store_false', help='Do not use CUDA to train model')
+parser.set_defaults(cuda=True)
+
+parser.add_argument('--custom-voc', dest='use_custom', action='store_true', help='Use a custom VOC-like dataset')
+parser.add_argument('--standard-voc', dest='use_custom', action='store_false', help='Use the standard VOC dataset (default)')
+parser.set_defaults(use_custom=False)
+
+parser.add_argument('--use-new-metric', dest='use_07_metric', action='store_false', help='Use the new VOC metric instead of the VOC 07 11 point metric')
+parser.set_defaults(use_07_metric=True)
+
+parser.add_argument('--save-cache', dest='overwrite_cache', action='store_false', help='Prevents overwriting the annotations cache')
+parser.set_defaults(overwrite_cache=True)
 
 args = parser.parse_args()
 

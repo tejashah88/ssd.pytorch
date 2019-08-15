@@ -17,41 +17,29 @@ import torch.utils.data as data
 import numpy as np
 import xmltodict
 
-def str2bool(v):
-    return v.lower() in ("yes", "true", "t", "1")
-
-
-parser = argparse.ArgumentParser(
-    description='Single Shot MultiBox Detector Training With Pytorch')
+parser = argparse.ArgumentParser(description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'custom'],
-                    type=str, help='VOC or COCO or custom')
-parser.add_argument('--dataset_root', default=VOC_ROOT,
-                    help='Dataset root directory path')
-parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
-                    help='Pretrained base model')
-parser.add_argument('--batch_size', default=32, type=int,
-                    help='Batch size for training')
-parser.add_argument('--resume', default=None, type=str,
-                    help='Checkpoint state_dict file to resume training from')
-parser.add_argument('--start_iter', default=0, type=int,
-                    help='Resume training at this iter')
-parser.add_argument('--num_workers', default=4, type=int,
-                    help='Number of workers used in dataloading')
-parser.add_argument('--cuda', default=True, type=str2bool,
-                    help='Use CUDA to train model')
-parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
-                    help='initial learning rate')
-parser.add_argument('--momentum', default=0.9, type=float,
-                    help='Momentum value for optim')
-parser.add_argument('--weight_decay', default=5e-4, type=float,
-                    help='Weight decay for SGD')
-parser.add_argument('--gamma', default=0.1, type=float,
-                    help='Gamma update for SGD')
-parser.add_argument('--visdom', default=False, type=str2bool,
-                    help='Use visdom for loss visualization')
-parser.add_argument('--save_folder', default='weights/',
-                    help='Directory for saving checkpoint models')
+parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'custom'], type=str, help='VOC or COCO or custom')
+parser.add_argument('--dataset-root', dest='dataset_root', default=VOC_ROOT, help='Dataset root directory path')
+parser.add_argument('--basenet', default='vgg16_reducedfc.pth', help='Pretrained base model')
+parser.add_argument('--batch-size', dest='batch_size', default=32, type=int, help='Batch size for training')
+parser.add_argument('--resume', default=None, type=str, help='Checkpoint state_dict file to resume training from')
+parser.add_argument('--start-iter', dest='start_iter', default=0, type=int, help='Resume training at this iter')
+parser.add_argument('--num-workers', dest='num_workers', default=4, type=int, help='Number of workers used in dataloading')
+parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float, help='initial learning rate')
+parser.add_argument('--momentum', default=0.9, type=float, help='Momentum value for optim')
+parser.add_argument('--weight-decay', dest='weight_decay', default=5e-4, type=float, help='Weight decay for SGD')
+parser.add_argument('--gamma', default=0.1, type=float, help='Gamma update for SGD')
+parser.add_argument('--save-folder', dest='save_folder', default='weights/', help='Directory for saving checkpoint models')
+
+parser.add_argument('--cuda', dest='cuda', action='store_true', help='Use CUDA to train model (default)')
+parser.add_argument('--no-cuda', dest='cuda', action='store_false', help='Do not use CUDA to train model')
+parser.set_defaults(cuda=True)
+
+parser.add_argument('--visom', dest='visdom', action='store_true', help='Use visdom for loss visualization')
+parser.add_argument('--no-visdom', dest='visdom', action='store_false', help='Do not use visdom for loss visualization (default)')
+parser.set_defaults(visom=True)
+
 args = parser.parse_args()
 
 
