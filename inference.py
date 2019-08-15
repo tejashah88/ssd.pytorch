@@ -9,16 +9,11 @@ import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 from torch.autograd import Variable
 from PIL import Image
-from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_ROOT, CUSTOM_CLASSES as labelmap
+from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_ROOT, CUSTOM_CLASSES as labelmap, MEANS
 import torch.utils.data as data
 from ssd import build_ssd
 import cv2
 import matplotlib.pyplot as plt
-
-if torch.cuda.is_available():
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
-else:
-    torch.set_default_tensor_type('torch.FloatTensor')
 
 num_classes = len(labelmap) + 1 # +1 background
 custom_class_to_ind = dict(zip(labelmap, range(len(labelmap))))
@@ -27,7 +22,11 @@ COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 
 def predict(frame, transform, net):
     height, width = frame.shape[:2]
-    x = torch.from_numpy(transform(frame)[0]).permute(2, 0, 1).cuda()
+    x = torch.from_numpy(transform(frame)[0]).permute(2, 0, 1)
+
+    if args.cuda:
+        x = x.cuda()
+
     x = Variable(x.unsqueeze(0))
     y = net(x)  # forward pass
     detections = y.data
@@ -46,10 +45,18 @@ def predict(frame, transform, net):
 
 def run_inference(model_file):
     net = build_ssd('test', 300, num_classes) # initialize SSD
-    net.load_state_dict(torch.load(model_file))
+
+    if args.cuda:
+        net.load_state_dict(torch.load(args.trained_model, map_location=torch.device('cuda')))
+    else:
+        net.load_state_dict(torch.load(args.trained_model, map_location=torch.device('cpu')))
+
     net = net.eval()
-    net = net.cuda()
-    cudnn.benchmark = True
+
+    if args.cuda:
+        net = net.cuda()
+        cudnn.benchmark = True
+
     print('Finished loading model!')
 
     def predict_simple(input_file):
@@ -68,6 +75,18 @@ if __name__ == '__main__':
     parser.add_argument('--no-cuda', dest='cuda', action='store_false', help='Do not use CUDA to train model')
     parser.set_defaults(cuda=True)
     args = parser.parse_args()
+
+
+    if torch.cuda.is_available():
+        if args.cuda:
+            torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        if not args.cuda:
+            print("WARNING: It looks like you have a CUDA device, but aren't " +
+                "using CUDA.\nRun with --cuda for optimal training speed.")
+            torch.set_default_tensor_type('torch.FloatTensor')
+    else:
+        torch.set_default_tensor_type('torch.FloatTensor')
+
 
     predict_simple = run_inference(args.trained_model)
     output_img, pt = predict_simple(args.input)

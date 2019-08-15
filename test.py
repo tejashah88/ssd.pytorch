@@ -34,8 +34,14 @@ parser.set_defaults(use_custom=False)
 
 args = parser.parse_args()
 
-if args.cuda and torch.cuda.is_available():
-    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+
+if torch.cuda.is_available():
+    if args.cuda:
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    if not args.cuda:
+        print("WARNING: It looks like you have a CUDA device, but aren't using \
+              CUDA.  Run with --cuda for optimal eval speed.")
+        torch.set_default_tensor_type('torch.FloatTensor')
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
 
@@ -51,7 +57,7 @@ else:
 
 def test_net(save_folder, net, cuda, testset, transform, thresh):
     # dump predictions and assoc. ground truth to text file for now
-    filename = save_folder+'test1.txt'
+    filename = save_folder+'test.txt'
     num_images = len(testset)
     for i in range(num_images):
         print('Testing image {:d}/{:d}....'.format(i+1, num_images))
