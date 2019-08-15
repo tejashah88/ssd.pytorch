@@ -62,9 +62,9 @@ def run_inference(model_file, cuda=True):
     net = build_ssd('test', 300, num_classes) # initialize SSD
 
     if cuda:
-        net.load_state_dict(torch.load(args.trained_model, map_location=torch.device('cuda')))
+        net.load_state_dict(torch.load(model_file, map_location=torch.device('cuda')))
     else:
-        net.load_state_dict(torch.load(args.trained_model, map_location=torch.device('cpu')))
+        net.load_state_dict(torch.load(model_file, map_location=torch.device('cpu')))
 
     net = net.eval()
 
