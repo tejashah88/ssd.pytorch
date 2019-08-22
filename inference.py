@@ -24,7 +24,7 @@ custom_class_to_ind = dict(zip(labelmap, range(len(labelmap))))
 
 COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 
-def predict(input_img, transform, net, cuda, debug_predictions='none'):
+def predict(input_img, transform, net, cuda, debug_predictions='full'):
     height, width = input_img.shape[:2]
     x = torch.from_numpy(transform(input_img)[0]).permute(2, 0, 1)
 
@@ -45,10 +45,10 @@ def predict(input_img, transform, net, cuda, debug_predictions='none'):
     if debug_predictions == 'full':
         print('PREDICTIONS:')
         for i in range(detections.size(1)):
-            while detections[0, i, j, 0] >= 0.05:
+            while detections[0, i, j, 0] >= 0.95:
                 pt = (detections[0, i, j, 1:] * scale).cpu().numpy()
                 print('  BOX: ' + str(np.rint(pt)) + ' => \t' + '%.4f' % detections[0, i, j, 0].item())
-                cv2.rectangle(img, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), (0, int(255 * detections[0, i, j, 0]), 0), 2)
+                cv2.rectangle(input_img, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), (0, int(255 * detections[0, i, j, 0]), 0), 2)
                 j += 1
     else:
         pt = (detections[0, i, j, 1:] * scale).cpu().numpy()
